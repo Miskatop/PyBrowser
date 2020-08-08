@@ -3,101 +3,131 @@ from PyQt5.Qt import *
 from PyQt5.QtGui import *
 from PyQt5.QtCore import *
 from PyQt5.QtWebEngineWidgets import *
-from PyQt5.QtWidgets import QApplication, QMainWindow
+from PyQt5.QtWidgets import QApplication
 
-# app and engine
+class App:
+
+	DEFAULT_STYLE = '''
+		QPushButton{
+			font-size: 12px;
+			border-radius: 13px;
+			padding: 5px;
+			border: none;
+		}
+		QPushButton:hover{
+			background: #ccc;
+		}
+		QProgressBar{
+			max-width: 100px;
+		}
+		QLineEdit{
+			height: 30px;
+			border-radius: 7.5px;
+		}
+	'''
+
+	def __init__(self, *args):
+		self.urls = []
+		self.viewers = []
+
+		# init elements
+		self.window =        QWidget()
+		self._vl =           QVBoxLayout()
+		self._hl =           QHBoxLayout()
+		self.tabs =          QTabWidget()
+		self.url_line =      QLineEdit()
+		self.add_tab_btn =   QPushButton("➕")
+		self.close_tab_btn = QPushButton("✖")
+		self.search_btn =    QPushButton("🔍")
+		self.back_btn =      QPushButton("⇐")
+		self.load =          QProgressBar()
+
+		# setting
+		self.load.setTextVisible(False)
+		self.load.setMaximum(100)
+		self.load.setValue(0)
+
+		# handlers
+		self.add_tab_btn.clicked.connect(self.add_tab)
+		self.close_tab_btn.clicked.connect(self.close_tab)
+		self.search_btn.clicked.connect(self.search)
+
+
+		# construct and show window
+		self.add_tab()
+		self.style()
+		self.construct_window()
+
+
+	loading = lambda s, p : s.load.setValue(p)
+
+	tab_i = lambda s: s.tabs.currentIndex() 
+
+	def to_google(self, args):
+		url = 'https://google.com/search?q='
+		for arg in args :
+			url += arg
+		return url
+
+	def search(self):
+		i = self.tab_i()
+		_url = self.url_line.text()
+		if 'http://' in _url or 'https://' in _url or 'file:///' in _url:
+			self.viewers[i].load(QUrl(_url))
+		else:
+			self.viewers[i].load(QUrl(self.to_google(_url.split(' '))))
+		
+		self.urls[i] = _url
+		
+
+	def add_tab(self):
+		self.viewers.append(QWebEngineView())
+		self.urls.append('https://google.com')
+		self.viewers[-1].load(QUrl(self.urls[self.tab_i()]))
+		self.viewers[-1].loadStarted.connect(self.start_load)
+		self.viewers[-1].loadProgress.connect(self.loading)
+		self.viewers[-1].loadFinished.connect(lambda x: self.load.setValue(0))
+		self.tabs.addTab(self.viewers[-1], 'https://google.com')
+		self.tabs.setCurrentIndex(int(self.tab_i()) + 1)
+
+	def close_tab(self):
+		i = self.tab_i()
+		del self.viewers[i]
+		del self.urls[i]
+		self.tabs.removeTab(i)
+		self.start_load()
+
+	def start_load(self):
+		i = self.tab_i()
+		self.urls[i] = self.viewers[i].url().toString()
+		show_url = self.urls[i]
+
+		if len(show_url) > 30:
+			show_url = str(self.urls[i])[:30]
+
+		self.window.setWindowTitle('WebLab - ' + show_url)	
+		self.url_line.setText(self.urls[i])
+		self.tabs.setTabText(i , show_url)
+
+	def construct_window(self):
+		self.window.setWindowState(Qt.WindowMaximized)
+		self._hl.addWidget(self.load)
+		self._hl.addWidget(self.url_line)
+		self._hl.addWidget(self.search_btn)
+		self._hl.addWidget(self.back_btn)
+		self._hl.addWidget(self.add_tab_btn)
+		self._hl.addWidget(self.close_tab_btn)
+		self._vl.addLayout(self._hl)
+		self._vl.addWidget(self.tabs)
+		self.window.setLayout(self._vl)
+		self.window.show()
+
+	def style(self, arg = ''):
+		if len(arg) > 30:
+			self.window.setStyleSheet(arg)
+		else:
+			self.window.setStyleSheet(self.DEFAULT_STYLE)
+
 app = QApplication(sys.argv)
-web_eng = [QWebEngineView()]
-urls = ['https://google.com']
-win = QWidget()
-
-# layouts
-vbox = QVBoxLayout()
-hbox = QHBoxLayout()
-tabWidget = QTabWidget()
-
-# elements
-url_line = QLineEdit()
-add_tab_button =  QPushButton("+")
-CloseTab = QPushButton("X")
-search_btn = QPushButton("Search")
-back_btn = QPushButton("Back")
-progressBar = QProgressBar()
-
-
-# settings
-progressBar.setMaximum(100)
-progressBar.setTextVisible(False)
-progressBar.setValue(0)
-
-# functions
-def to_google(args):
-	url = 'https://google.com/search?q='
-	for arg in args :
-		url += arg
-	return url
-
-def search():
-	tab = tabWidget.currentIndex()
-	urls[tab] = url_line.text()
-	url = urls[tab]
-	if not 'http://' in url or 'https://' in url:
-		url = to_google(url.split(' '))
-	web_eng[tab].load(QUrl(url))
-
-def add_tab():
-	web_eng.append(QWebEngineView())
-	urls.append('https://google.com')
-	construct_tabs()
-
-def construct_tabs():
-	for i in web_eng:
-		web_eng[web_eng.index(i)].load(QUrl(urls[web_eng.index(i)]))
-		web_eng[web_eng.index(i)].loadStarted.connect(title)
-		web_eng[web_eng.index(i)].loadProgress.connect(loading)
-		web_eng[web_eng.index(i)].loadFinished.connect(lambda x: progressBar.setValue(0))
-		tabWidget.addTab(web_eng[web_eng.index(i)], title())
-		tabWidget.setCurrentIndex(web_eng.index(i))
-
-def close_tab():
-	x = tabWidget.currentIndex()
-	del web_eng[x]
-	del urls[x]
-	tabWidget.removeTab(x)
-
-def loading(proc):
-	progressBar.setValue(proc)
-
-def title():
-	urls[tabWidget.currentIndex()] = web_eng[tabWidget.currentIndex()].url().toString()
-	
-	show_url = urls[tabWidget.currentIndex()]
-	if len(show_url) > 30:
-		show_url = str(urls[tabWidget.currentIndex()])[:30]
-
-	win.setWindowTitle('WebLab - ' + show_url)	
-	url_line.setText(urls[tabWidget.currentIndex()])
-	tabWidget.setTabText(tabWidget.currentIndex() ,show_url)
-
-# handlers
-add_tab_button.clicked.connect(add_tab)
-CloseTab.clicked.connect(close_tab)
-search_btn.clicked.connect(search)
-
-def window():
-	web_eng[0].load(QUrl(urls[tabWidget.currentIndex()]))
-	win.setWindowState(Qt.WindowMaximized)
-	hbox.addWidget(url_line)
-	hbox.addWidget(search_btn)
-	hbox.addWidget(back_btn)
-	hbox.addWidget(add_tab_button)
-	hbox.addWidget(CloseTab)
-	hbox.addWidget(progressBar)
-	vbox.addLayout(hbox)
-	construct_tabs()
-	vbox.addWidget(tabWidget)
-	win.setLayout(vbox)
-	win.show()
-	sys.exit(app.exec_())
-
-window()
+App()
+sys.exit(app.exec_())

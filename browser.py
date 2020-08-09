@@ -37,9 +37,9 @@ class App:
 		self.tabs =          QTabWidget()
 		self.url_line =      QLineEdit()
 		self.add_tab_btn =   QPushButton("➕")
-		self.close_tab_btn = QPushButton("✖")
+		self.close_tab_btn = QPushButton("❌")
 		self.search_btn =    QPushButton("🔍")
-		self.back_btn =      QPushButton("⇐")
+		self.back_btn =      QPushButton("◀")
 		self.load =          QProgressBar()
 
 		# setting
@@ -55,7 +55,7 @@ class App:
 
 		# construct and show window
 		self.add_tab()
-		self.style()
+		self.style(self.load_content('browser_out.mbc'))
 		self.construct_window()
 
 
@@ -78,22 +78,30 @@ class App:
 			self.viewers[i].load(QUrl(self.to_google(_url.split(' '))))
 		
 		self.urls[i] = _url
-		
 
 	def add_tab(self):
+		# append tab contents and urls
 		self.viewers.append(QWebEngineView())
 		self.urls.append('https://google.com')
-		self.viewers[-1].load(QUrl(self.urls[self.tab_i()]))
+		
+		# load handlers
 		self.viewers[-1].loadStarted.connect(self.start_load)
 		self.viewers[-1].loadProgress.connect(self.loading)
-		self.viewers[-1].loadFinished.connect(lambda x: self.load.setValue(0))
+		self.viewers[-1].loadFinished.connect(lambda x: self.end_load())
+
+		# loading a page
+		self.viewers[-1].load(QUrl(self.urls[self.tab_i()]))
+		
+		# adding tabs
 		self.tabs.addTab(self.viewers[-1], 'https://google.com')
 		self.tabs.setCurrentIndex(int(self.tab_i()) + 1)
 
 	def close_tab(self):
 		i = self.tab_i()
+		# deleting tab data
 		del self.viewers[i]
 		del self.urls[i]
+		# removing tabs and loading names
 		self.tabs.removeTab(i)
 		self.start_load()
 
@@ -109,6 +117,10 @@ class App:
 		self.url_line.setText(self.urls[i])
 		self.tabs.setTabText(i , show_url)
 
+	def end_load(self):
+		self.start_load()
+		self.load.setValue(0)
+
 	def construct_window(self):
 		self.window.setWindowState(Qt.WindowMaximized)
 		self._hl.addWidget(self.load)
@@ -121,6 +133,11 @@ class App:
 		self._vl.addWidget(self.tabs)
 		self.window.setLayout(self._vl)
 		self.window.show()
+
+	def load_content(self, path):
+		with open(path, 'r') as f:
+			cnt = f.read()
+		return cnt
 
 	def style(self, arg = ''):
 		if len(arg) > 30:
